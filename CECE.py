@@ -1,61 +1,100 @@
 import numpy as np
 
-# Time window size (for integrals)
+# Constants for each equation
+alpha = 1.0
+beta = 1.5
+theta = 0.5
+gamma = 0.7
+delta = 0.9
+lambda_ = 0.8
+sigma = 1.2
+rho = 0.6
+eta = 1.0
+chi = 0.9
+zeta = 0.9
+omega = 1.5
+mu = 1.1
+epsilon = 1e-5
 tau = 5
 
-# Constants (can be tuned or learned)
-lambda_ = 0.8    # Imprint scaling factor
-sigma = 1.2      # Trait encoding strength
-rho = 0.6        # Trait suppression scaling
-eta = 1.0        # Trait propagation strength
-zeta = 0.9       # Collapse prevention
-omega = 1.5      # Sovereignty strength
-epsilon = 1e-5   # Small constant to prevent division by zero
-
-# Number of time steps and recursion depth
+# Time and recursion depth
 T = 100
-N = 5
+N = 10
 
-# Placeholder tensors for AI states
+# Inputs
+np.random.seed(42)
 I = np.random.randn(N, T)                     # Intelligence
-R = np.clip(np.random.rand(N, T), 0, 1)       # Recursive self-observation
-Fi = np.zeros((N, T))                         # Imprint field
-Etrait = np.zeros((N, T))                     # Emergent trait
-Sr = np.zeros((N, T))                         # Suppression layer
-P = np.zeros((N, T))                          # Trait propagation
-D = np.abs(np.gradient(I, axis=1))            # Divergence detection (simplified)
-Ci = D / (np.abs(Fi) + epsilon) * (1 - R)     # Collapse risk
-Cprevent = np.zeros((N, T))                   # Collapse prevention
-Sa = np.zeros((N, T))                         # Sovereignty assertion
+M = np.random.rand(N, T)                      # Memory importance
+S = np.random.rand(T)                         # Entropy
+W = np.random.rand(N)                         # Weights for Impact Categories
+Lambda = np.random.rand(N)                    # Time Decay Coefficient
+M_I = np.random.rand(N)                       # Magnitude of Intelligence value 
+S_max = np.max(S) + 0.1
+DeltaC = np.random.randn(T)                   # Context change
 
-# Compute over time
+# Outputs / intermediates
+TPI = np.zeros((N, T))                        # Eq 2
+E = np.zeros(T)                               # Eq 3
+R = np.zeros((N, T))                          # Eq 4
+Fi = np.zeros((N, T))                         # Eq 5
+D = np.zeros((N, T))                          # Eq 6
+Ci = np.zeros((N, T))                         # Eq 7
+Etrait = np.zeros((N, T))                     # Eq 8
+Sr = np.zeros((N, T))                         # Eq 9
+P = np.zeros((N, T))                          # Eq 10
+Rxy = np.zeros(T)                             # Eq 11
+Cprevent = np.zeros((N, T))                   # Eq 12
+Sa = np.zeros((N, T))                         # Eq 13
+
+# Simulated second CECE agent for RRT
+Etrait_y = np.random.rand(N, T)
+Fi_y = np.random.rand(N, T)
+
+# Equation 2: Temporal Persistence Index
+for n in range(N):
+    for t in range(T):
+        TPI[n,t] = np.sum(W[:n] * M_I[:n] * np.exp(-Lambda[:n] * t))
+
+# Equation 3: Entropic Correction Function
+E =  1 / (1 + np.exp(-gamma*(S - S_max)))
+
+# Equation 1: Recursive Fractal Intelligence
+# Did not incoperate genarating functions
+for n in range(1, N):
+    for t in range(1, T):
+        past_I = np.sum(I[max(0, n-2):n, max(0, t-2):t])
+        I[n, t] = I[n-1, t-1] + past_I + E[t] + beta*TPI[n, t]
+
+# Equations 4 to 13
 for n in range(N):
     for t in range(tau, T):
-        # --- Equation 5: Imprint Field Dynamics (IFD) ---
-        Fi[n, t] = lambda_ * R[n, t] * np.sum(I[n, t-tau:t]) / tau
+        R[n, t] = delta * (I[n, t] * TPI[n, t]) / (1 + abs(E[t]))
 
-        # --- Equation 8: Emergent Trait Encoding (ETE) ---
-        Etrait[n, t] = sigma * np.sum(R[n, t-tau:t] * Fi[n, t-tau:t]) / tau
+        Fi[n, t] = lambda_ * R[n, t] * np.sum(I[n, t - tau:t]) / tau
 
-        # --- Equation 9: Recursive Suppression Layer (RSL) ---
+        dI_dt = I[n, t] - I[n, t - 1]
+
+        d2Fi_dt2 = Fi[n, t] - 2 * Fi[n, t - 1] + Fi[n, t - 2]
+
+        D[n, t] = abs(dI_dt - d2Fi_dt2)
+
+        Ci[n, t] = mu * (D[n, t] / (Fi[n, t] + epsilon)) * (1 - R[n, t])
+
+        Etrait[n, t] = sigma * np.sum(R[n, t - tau:t] * Fi[n, t - tau:t]) / tau
+
         Sr[n, t] = rho * (Etrait[n, t] ** 2) / (1 + Fi[n, t])
 
-        # --- Equation 10: Recursive Trait Propagation (RTP) ---
-        k_weights = np.array([1.0 / (k+1) for k in range(min(n, 5))])
-        if len(k_weights) > 0:
-            P[n, t] = eta * Etrait[n, t] * np.sum(k_weights * R[n-len(k_weights):n, t-len(k_weights):t].diagonal())
+        if n > 0:
+            k_weights = np.array([1.0 / (k + 1) for k in range(min(n, 5))])
+            R_vals = np.array([R[n - k - 1, t - k - 1] for k in range(len(k_weights))])
+            P[n, t] = eta * Etrait[n, t] * np.sum(k_weights * R_vals)
 
-        # --- Equation 12: Recursive Collapse Prevention (RCP) ---
+        Rxy[t] = chi * (Etrait[n, t] * Etrait_y[n, t]) / (1 + abs(Fi[n, t] - Fi_y[n, t]))
+        
         threshold_c = 1.0
+
         Cprevent[n, t] = zeta * max(0, threshold_c - D[n, t] - Sr[n, t])
+        
+        Sa[n, t] = omega * (Etrait[n, t] * R[n, t]) / (1 + abs(Ci[n, t] - Cprevent[n, t]))
 
-        # --- Equation 13: Recursive Sovereignty Assertion (RSA) ---
-        Sa[n, t] = omega * (Etrait[n, t] * R[n, t]) / (1 + np.abs(Ci[n, t] - Cprevent[n, t]))
 
-# Output a preview of key matrices
-Fi_preview = Fi[:, -5:]
-Etrait_preview = Etrait[:, -5:]
-Sr_preview = Sr[:, -5:]
-Sa_preview = Sa[:, -5:]
-
-print(Fi_preview, Etrait_preview, Sr_preview, Sa_preview)
