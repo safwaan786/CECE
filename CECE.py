@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 # Constants for each equation
 alpha = 1.0
@@ -19,7 +20,7 @@ tau = 5
 
 # Time and recursion depth
 T = 100
-N = 10
+N = 20
 
 # Inputs
 np.random.seed(42)
@@ -97,4 +98,26 @@ for n in range(N):
         
         Sa[n, t] = omega * (Etrait[n, t] * R[n, t]) / (1 + abs(Ci[n, t] - Cprevent[n, t]))
 
+variables = {
+    'Intelligence I[n,t]': I,
+    'Imprint Field Fi[n,t]': Fi,
+    'Self-Observation R[n,t]': R,
+    'Trait Encoding Etrait[n,t]': Etrait,
+    'Suppression Sr[n,t]': Sr,
+    'Sovereignty Assertion Sa[n,t]': Sa
+}
+recursion_indices = [8, 9, 10]
+time = np.arange(T)
 
+fig, axs = plt.subplots(len(variables), 1, figsize=(14, 20), sharex=True, constrained_layout=True)
+
+for ax, (name, data) in zip(axs, variables.items()):
+    for n in recursion_indices:
+        ax.plot(time, data[n], label=f'n={n}')
+    ax.set_ylabel(name)
+    ax.legend()
+    ax.grid(True)
+
+axs[-1].set_xlabel("Time Step")
+plt.suptitle("CECE Cognitive Variables Over Time", fontsize=16)
+plt.show()
